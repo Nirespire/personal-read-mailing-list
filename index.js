@@ -1,11 +1,18 @@
-require('dotenv').config()
+
 const express = require('express')
 const morgan = require('morgan')
 const helmet = require('helmet')
 const yup = require('yup')
-const { Sequelize, Model, DataTypes } = require('sequelize');
-const sequelize = new Sequelize('sqlite::memory:');
 var nodemailer = require('nodemailer');
+const Email = require('email-templates');
+
+const { Record } = require('./db/models')
+const { getRecords, mapRecordsToList, saveRecord } = require('./db/util')
+
+const { emailConfig } = require('./emails/config')
+
+require('dotenv').config()
+require('./db/init').init()
 
 const app = express()
 
@@ -17,44 +24,6 @@ const schema = yup.object().shape({
 app.use(helmet())
 app.use(morgan('tiny'))
 app.use(express.json())
-
-class Record extends Model { }
-Record.init({
-    url: DataTypes.STRING,
-    email: DataTypes.STRING
-}, { sequelize, modelName: 'record' })
-
-const transporter = nodemailer.createTransport({
-    host: 'smtp.sendgrid.net',
-    port: 465,
-    auth: {
-        user: 'apikey',
-        pass: process.env.EMAIL_API_KEY
-    }
-});
-
-const mailOptions = {
-    from: 'em9885@sanjaynair.dev',
-    to: 'email@sanjaynair.dev',
-    subject: 'Sending Email using Node.js',
-    text: 'That was easy!'
-};
-
-app.get('/email', (req, res) => {
-    if (!process.env.EMAIL_BLOCK) {
-        transporter.sendMail(mailOptions, (error, info) => {
-            if (error) {
-                console.log(error);
-            } else {
-                console.log('Email sent: ' + info.response);
-            }
-        });
-    } else {
-        console.log('email block enabled, not sending')
-    }
-
-    res.send('ok')
-});
 
 app.use((error, req, res, next) => {
     if (error.status) {
@@ -75,11 +44,7 @@ app.get('/:email/posts', async (req, res, next) => {
 
         console.log(`Looking up records for ${email}`)
 
-        const records = await Record.findAll({
-            where: {
-                email: email
-            }
-        })
+        const records = await getRecords(email)
 
         res.send(JSON.stringify(records))
     } catch (error) {
@@ -88,37 +53,44 @@ app.get('/:email/posts', async (req, res, next) => {
 
 })
 
+app.get('/:email/triggerEmail', async (req, res) => {
+
+    const email = req.params['email']
+
+    const records = await getRecords(email)
+
+    emailConfig
+        .send({
+            template: 'articleList',
+            message: {
+                to: email
+            },
+            locals: {
+                name: 'Sanj',
+                urls: mapRecordsToList(records)
+            }
+        })
+        .then(console.log)
+        .catch(console.error);
+
+    res.send('ok')
+});
+
 app.post('/save', async (req, res, next) => {
     const { url, email } = req.body;
 
+    await schema.validate({
+        url, email
+    })
+
     try {
-        await schema.validate({
-            url, email
-        })
-
-        await sequelize.sync()
-
-        const record = await Record.create({
-            url: url,
-            email: email
-        })
+        const record = await saveRecord(url, email)
 
         res.send(record.toJSON())
     } catch (error) {
         next(error)
     }
 })
-
-async function seedData() {
-    await sequelize.sync()
-
-    Record.create({
-        url: "http://something.com",
-        email: "email@email.com"
-    })
-}
-
-seedData()
 
 const port = process.env.PORT || 3000
 
