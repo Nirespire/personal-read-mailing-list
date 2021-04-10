@@ -1,31 +1,30 @@
+require('dotenv').config()
 
 const express = require('express')
 const morgan = require('morgan')
 const helmet = require('helmet')
-const yup = require('yup')
-var nodemailer = require('nodemailer');
-const Email = require('email-templates');
-
+// TODO move this initialization to /db
 const { Record } = require('./db/models')
-const { getRecords, mapRecordsToList, saveRecord } = require('./db/util')
+const { getRecords, mapRecordsToList, saveRecord, getUserInfoByEmail, getUserInfoById, createUser } = require('./db/util')
 
 const { emailConfig } = require('./emails/config')
 
-require('dotenv').config()
+
 require('./db/init').init()
 
 const app = express()
 
-const schema = yup.object().shape({
-    url: yup.string().trim().url().required(),
-    email: yup.string().email().required()
-})
+// const schema = yup.object().shape({
+//     url: yup.string().trim().url().required(),
+//     email: yup.string().email().required()
+// })
 
 app.use(helmet())
 app.use(morgan('tiny'))
 app.use(express.json())
 
 app.use((error, req, res, next) => {
+    console.error(JSON.stringify(error))
     if (error.status) {
         res.status(error.status)
     } else {
@@ -37,14 +36,49 @@ app.use((error, req, res, next) => {
     })
 })
 
-app.get('/:email/posts', async (req, res, next) => {
+app.post('/createUser', async(req, res, next) => {
+    try {
+        const { email } = req.body
 
+        console.log(`Creating user with ${email}`)
+
+        const info = await getUserInfoByEmail(email)
+
+        if(!info) {
+            const user = await createUser(email)
+            res.status(201).send(JSON.stringify(user))
+        } else {
+            throw new Error(`User with email ${email} already exists`)
+        }
+
+        
+    } catch (error) {
+        next(error)
+    }
+})
+
+app.get('/:email/info', async(req, res, next) => {
     try {
         const email = req.params['email']
 
-        console.log(`Looking up records for ${email}`)
+        console.log(`Looking up info for ${email}`)
 
-        const records = await getRecords(email)
+        const info = await getUserInfoByEmail(email)
+
+        res.send(JSON.stringify(info))
+    } catch (error) {
+        next(error)
+    }
+})
+
+app.get('/:userId/articles', async (req, res, next) => {
+
+    try {
+        const userId = req.params['userId']
+
+        console.log(`Looking up records for ${userId}`)
+
+        const records = await getRecords(userId)
 
         res.send(JSON.stringify(records))
     } catch (error) {
@@ -53,44 +87,60 @@ app.get('/:email/posts', async (req, res, next) => {
 
 })
 
-app.get('/:email/triggerEmail', async (req, res) => {
+app.post('/saveArticle', async (req, res, next) => {
+    const { url, userId, publishDate } = req.body;
 
-    const email = req.params['email']
-
-    const records = await getRecords(email)
-
-    emailConfig
-        .send({
-            template: 'articleList',
-            message: {
-                to: email
-            },
-            locals: {
-                name: 'Sanj',
-                urls: mapRecordsToList(records)
-            }
-        })
-        .then(console.log)
-        .catch(console.error);
-
-    res.send('ok')
-});
-
-app.post('/save', async (req, res, next) => {
-    const { url, email } = req.body;
-
-    await schema.validate({
-        url, email
-    })
+    // await schema.validate({
+    //     url, userId, publishDate
+    // })
 
     try {
-        const record = await saveRecord(url, email)
+        const record = await saveRecord(url, userId, publishDate)
 
         res.send(record.toJSON())
     } catch (error) {
         next(error)
     }
 })
+
+
+
+app.get('/:userId/triggerEmail', async (req, res, next) => {
+
+    const userId = req.params['userId']
+
+    try {
+
+        const info = await getUserInfoById(userId)
+
+        if(!info) {
+            throw new Error(`User not found`)
+        }
+
+        const records = await getRecords(userId)
+        
+        emailConfig
+            .send({
+                template: 'articleList',
+                message: {
+                    to: info.email
+                },
+                locals: {
+                    name: 'Sanj',
+                    urls: mapRecordsToList(records)
+                }
+            })
+            .then(console.log)
+            .catch(console.error);
+
+        res.send('ok')
+    }
+    catch(error) {
+        next(error)
+    }
+});
+
+
 
 const port = process.env.PORT || 3000
 
