@@ -1,5 +1,5 @@
 const { DataTypes, Sequelize } = require('sequelize');
-const { db } = require('./config')
+const { db } = require('./config');
 
 const Record = db.define('Record', {
     url: {
@@ -15,7 +15,7 @@ const Record = db.define('Record', {
         type: DataTypes.DATE,
         allowNull: false
     }
-})
+});
 
 const User = db.define('User', {
     id: {
@@ -28,6 +28,6 @@ const User = db.define('User', {
         type: DataTypes.STRING,
         allowNull: false
     }
-})
+});
 
-module.exports = { Record }
+module.exports = { Record, User };

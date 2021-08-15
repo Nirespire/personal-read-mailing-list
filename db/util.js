@@ -1,71 +1,71 @@
-const { v4: uuid} = require('uuid')
-const { db } = require('./config')
+const { v4: uuid} = require('uuid');
+const { db } = require('./config');
 
-const mapRecordsToList = (records) => {
+const mapRecordsToUrlList = (records) => {
     return records.map(record => {
-        return record.getDataValue('url')
-    })
-}
+        return record.getDataValue('url');
+    });
+};
 
 const getRecords = async (userId) => {
 
-    await db.sync()
+    await db.sync();
     
     const records = await db.models.Record.findAll({
         where: {
             userId: userId
         }
-    })
-    return records
-}
+    });
+    return records;
+};
 
 const createUser = async (email) => {
 
-    await db.sync()
+    await db.sync();
 
     const user = await db.models.User.create({
         id: uuid(),
         email: email
-    })
+    });
 
-    return user
-}
+    return user;
+};
 
 const getUserInfoById = async (userId) => {
 
-    await db.sync()
+    await db.sync();
 
     const info = await db.models.User.findOne({
         where: {
             id: userId
         }
-    })
-    return info
-}
+    });
+    return info;
+};
 
 const getUserInfoByEmail = async (email) => {
 
-    await db.sync()
+    await db.sync();
 
     const info = await db.models.User.findOne({
         where: {
             email: email
         }
-    })
-    return info
-}
+    });
+    return info;
+};
 
 const saveRecord = async (url, userId, publishDate) => {
 
-    await db.sync()
+    await db.sync();
 
     const record = await db.models.Record.create({
         url: url,
         userId: userId,
         publishDate: publishDate
-    })
+    });
 
-    return record
-}
+    return record;
+};
 
-module.exports = { getRecords, mapRecordsToList, saveRecord, getUserInfoByEmail, getUserInfoById, createUser }
+module.exports = { getRecords, mapRecordsToUrlList, saveRecord, getUserInfoByEmail, getUserInfoById, createUser };

@@ -1,6 +1,8 @@
 p Hi #{name},
 p Below is your scheduled digest.
 
-ul
-  each url in urls
-    li= url
+each summary in summaries
+  h1= summary.softTitle
+  h2= summary.description
+  h3= summary.url
+  p= summary.text

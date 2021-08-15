@@ -18,4 +18,4 @@ const emailConfig = new Email({
     transport: transporter
 });
 
-module.exports = { emailConfig }
+module.exports = { emailConfig };
